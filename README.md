@@ -12,7 +12,7 @@ The two results are combined to give a risk score from 0 to 100.
 
 ## Why I built this
 
-Scam messages are becoming more common, and many of them use similar tricks.
+Scam messages are becoming more common and many of them use similar tricks.
 
 For example, a message might say that your bank account will be blocked unless you verify something immediately or that you have won a prize and need to click a link.
 
@@ -74,8 +74,33 @@ I used **Logistic Regression** as the classifier.
 
 ```python
 LogisticRegression(max_iter=1000)
+```
 
-Rule-based detection
+---
+
+## Model Performance
+
+The model achieved **97.31% accuracy** on the test dataset.
+
+The classification results were:
+
+| Class | Precision | Recall | F1-Score |
+|-------|-----------|--------|----------|
+| Ham | 0.97 | 1.00 | 0.98 |
+| Spam | 1.00 | 0.80 | 0.89 |
+
+The confusion matrix was:
+
+```text
+[[966   0]
+ [ 30 119]]
+```
+
+The model correctly classified 966 normal messages and 119 spam messages in the test set.
+
+---
+
+## Rule-Based Detection
 
 The ML model is not the only part of SCAMSHIELD.
 
@@ -83,60 +108,125 @@ I also created a rule-based detector that checks the message for specific patter
 
 For example:
 
-"URGENT! Your bank account will be blocked. Verify immediately."
+> "URGENT! Your bank account will be blocked. Verify immediately."
 
 The system can identify:
 
-Urgency
-Financial terms
-Verification request
-Threat language
+- Urgency
+- Financial terms
+- Verification requests
+- Threat language
 
 These indicators are then used along with the ML spam probability when calculating the final risk score.
 
-Streamlit interface
+This also makes the result easier to understand because the user can see some of the reasons why a message was considered risky.
+
+---
+
+## Streamlit Interface
 
 I built a simple interface using Streamlit.
 
 The user can:
 
-Paste a message
-Click Analyze Message
-See the ML spam probability
-See the overall scam risk score
-See the detected risk indicators
-Get a recommended action
+- Paste a message
+- Click **Analyze Message**
+- See the ML spam probability
+- See the overall scam risk score
+- See the detected risk indicators
+- Get a recommended action
 
 The application currently runs locally through Streamlit.
 
-Technologies used
-Python
-Pandas
-Scikit-learn
-TF-IDF
-Logistic Regression
-Streamlit
-Joblib
-What I learned
+---
+
+## Technologies Used
+
+- Python
+- Pandas
+- Scikit-learn
+- TF-IDF
+- Logistic Regression
+- Streamlit
+- Joblib
+
+---
+
+## Project Structure
+
+```text
+scam-shield/
+│
+├── app.py
+├── scam_analyzer.py
+├── risk_detector.py
+├── train_model.py
+├── save_model.py
+├── explore_data.py
+├── test.py
+├── test_messages.py
+├── model.pkl
+├── vectorizer.pkl
+└── README.md
+```
+
+---
+
+## What I Learned
 
 This project helped me understand how a basic machine learning pipeline works from start to finish.
 
 I worked with:
 
-Dataset exploration
-Text preprocessing
-TF-IDF feature extraction
-Model training
-Model evaluation
-Probability prediction
-Rule-based detection
-Combining ML results with custom logic
-Building a simple Streamlit application
+- Dataset exploration
+- Train/test splitting
+- Text preprocessing
+- TF-IDF feature extraction
+- Model training
+- Model evaluation
+- Probability prediction
+- Rule-based detection
+- Combining ML results with custom logic
+- Building a Streamlit application
 
 One of the interesting parts was realizing that an ML prediction alone isn't always enough. Adding simple rules made it possible to explain why a message was considered risky.
 
-Note
+---
 
-SCAMSHIELD is a learning/project prototype. Its results should not be treated as a guarantee that a message is safe or malicious.
+## How to Run Locally
 
-The project is currently intended for experimentation and demonstration.
+Create and activate a virtual environment, then install the required libraries:
+
+```bash
+pip install pandas scikit-learn streamlit joblib
+```
+
+Run the Streamlit application:
+
+```bash
+streamlit run app.py
+```
+
+The application will open locally in your browser.
+
+---
+
+## Future Improvements
+
+Some ideas for future versions include:
+
+- Better scam and phishing URL detection
+- Multilingual message detection
+- More training data
+- More advanced NLP models
+- Email or SMS integration
+- Improved detection of social engineering techniques
+- Online deployment
+
+---
+
+## Note
+
+SCAMSHIELD is a learning and project prototype. Its results should not be treated as a guarantee that a message is safe or malicious.
+
+The project is intended for experimentation, learning and demonstration.
