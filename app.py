@@ -49,37 +49,6 @@ st.markdown(
         margin-top: 20px;
     }
 
-    .info-box {
-        padding: 18px;
-        border-radius: 12px;
-        background-color: #171a21;
-        border: 1px solid #30343d;
-        margin-top: 10px;
-        margin-bottom: 15px;
-    }
-
-    .result-box {
-        padding: 18px;
-        border-radius: 12px;
-        margin-top: 15px;
-        margin-bottom: 15px;
-    }
-
-    .high-risk {
-        background-color: #3a2025;
-        border: 1px solid #7f1d1d;
-    }
-
-    .medium-risk {
-        background-color: #3a3020;
-        border: 1px solid #854d0e;
-    }
-
-    .low-risk {
-        background-color: #183b2b;
-        border: 1px solid #166534;
-    }
-
     .indicator {
         padding: 8px 12px;
         margin: 5px 0px;
@@ -148,16 +117,23 @@ RISK_PATTERNS = {
     "Reward": [
         "winner",
         "won",
+        "win",
         "prize",
         "free",
         "reward",
-        "congratulations"
+        "congratulations",
+        "lottery",
+        "jackpot",
+        "cash prize",
+        "cash reward",
+        "selected",
+        "lucky"
     ]
 }
 
 
 # ============================================================
-# RISK DETECTION
+# DETECT RISK INDICATORS
 # ============================================================
 
 def detect_risk_indicators(message):
@@ -166,9 +142,9 @@ def detect_risk_indicators(message):
 
     detected = {}
 
-    # -----------------------------------------
-    # Keyword-based indicators
-    # -----------------------------------------
+    # --------------------------------------------------------
+    # Keyword indicators
+    # --------------------------------------------------------
 
     for category, keywords in RISK_PATTERNS.items():
 
@@ -184,9 +160,9 @@ def detect_risk_indicators(message):
         if matches:
             detected[category] = matches
 
-    # -----------------------------------------
+    # --------------------------------------------------------
     # Detect URLs
-    # -----------------------------------------
+    # --------------------------------------------------------
 
     urls = re.findall(
         r"https?://[^\s]+",
@@ -196,9 +172,9 @@ def detect_risk_indicators(message):
     if urls:
         detected["Suspicious Link"] = urls
 
-    # -----------------------------------------
+    # --------------------------------------------------------
     # Detect money amounts
-    # -----------------------------------------
+    # --------------------------------------------------------
 
     money_patterns = re.findall(
         r"(?:₹|\$|€|£)\s?\d+(?:[,.]\d+)*",
@@ -208,9 +184,9 @@ def detect_risk_indicators(message):
     if money_patterns:
         detected["Money Amount"] = money_patterns
 
-    # -----------------------------------------
+    # --------------------------------------------------------
     # Financial information requests
-    # -----------------------------------------
+    # --------------------------------------------------------
 
     financial_phrases = [
         "bank details",
@@ -231,9 +207,9 @@ def detect_risk_indicators(message):
     if financial_matches:
         detected["Financial Request"] = financial_matches
 
-    # -----------------------------------------
+    # --------------------------------------------------------
     # Job scam patterns
-    # -----------------------------------------
+    # --------------------------------------------------------
 
     job_phrases = [
         "work from home",
@@ -265,9 +241,9 @@ def detect_risk_indicators(message):
 
 def analyze_message(message):
 
-    # -----------------------------------------
+    # --------------------------------------------------------
     # Machine Learning prediction
-    # -----------------------------------------
+    # --------------------------------------------------------
 
     message_tfidf = vectorizer.transform([message])
 
@@ -277,38 +253,48 @@ def analyze_message(message):
 
     spam_probability = probabilities[spam_index]
 
-    # -----------------------------------------
-    # Detect risk indicators
-    # -----------------------------------------
+    # --------------------------------------------------------
+    # Rule-based indicators
+    # --------------------------------------------------------
 
     indicators = detect_risk_indicators(message)
 
-    # -----------------------------------------
-    # Initial risk score
-    # -----------------------------------------
+    message_lower = message.lower()
+
+    # --------------------------------------------------------
+    # Base score from ML
+    # --------------------------------------------------------
 
     risk_score = spam_probability * 50
 
-    # -----------------------------------------
+    # --------------------------------------------------------
     # Category weights
-    # -----------------------------------------
+    # --------------------------------------------------------
 
     weights = {
 
         "Urgency": 8,
+
         "Financial": 10,
+
         "Security": 10,
+
         "Threat": 12,
+
         "Reward": 12,
+
         "Suspicious Link": 18,
+
         "Money Amount": 5,
+
         "Financial Request": 18,
+
         "Job Scam": 15
     }
 
-    # -----------------------------------------
-    # Add category scores
-    # -----------------------------------------
+    # --------------------------------------------------------
+    # Add indicator scores
+    # --------------------------------------------------------
 
     for category in indicators:
 
@@ -317,10 +303,96 @@ def analyze_message(message):
             0
         )
 
-    message_lower = message.lower()
+    # ========================================================
+    # STRONG COMBINATIONS
+    # ========================================================
+
+    # Threat + security
+    if (
+        "Threat" in indicators
+        and "Security" in indicators
+    ):
+
+        risk_score += 15
+
+    # Financial + security
+    if (
+        "Financial" in indicators
+        and "Security" in indicators
+    ):
+
+        risk_score += 10
+
+    # Multiple reward signals
+    if (
+        "Reward" in indicators
+        and len(indicators["Reward"]) >= 2
+    ):
+
+        risk_score += 15
+
+    # Reward + money
+    if (
+        "Reward" in indicators
+        and "Money Amount" in indicators
+    ):
+
+        risk_score += 30
+
+    # Lottery + money
+    if (
+        "lottery" in message_lower
+        and "Money Amount" in indicators
+    ):
+
+        risk_score += 25
+
+    # Reward + suspicious link
+    if (
+        "Reward" in indicators
+        and "Suspicious Link" in indicators
+    ):
+
+        risk_score += 15
+
+    # KYC + urgency
+    if (
+        "kyc" in message_lower
+        and "Urgency" in indicators
+    ):
+
+        risk_score += 15
+
+    # OTP / PIN / password + urgency
+    if (
+        any(
+            word in message_lower
+            for word in [
+                "otp",
+                "pin",
+                "password"
+            ]
+        )
+        and "Urgency" in indicators
+    ):
+
+        risk_score += 15
+
+    # Financial information request
+    if "Financial Request" in indicators:
+
+        risk_score += 15
+
+    # Job scam + money
+    if (
+        "Job Scam" in indicators
+        and "Money Amount" in indicators
+    ):
+
+        risk_score += 20
 
     # ========================================================
-    # CONTEXT RULES
+    # LEGITIMATE CONTEXT
     # ========================================================
 
     legitimate_contexts = [
@@ -341,93 +413,7 @@ def analyze_message(message):
         for context in legitimate_contexts
     )
 
-    # -----------------------------------------
-    # Threat + Security
-    # -----------------------------------------
-
-    if (
-        "Threat" in indicators
-        and "Security" in indicators
-    ):
-        risk_score += 15
-
-    # -----------------------------------------
-    # Financial + Security
-    # -----------------------------------------
-
-    if (
-        "Financial" in indicators
-        and "Security" in indicators
-    ):
-        risk_score += 10
-
-    # -----------------------------------------
-    # Reward combinations
-    # -----------------------------------------
-
-    if "Reward" in indicators:
-
-        if len(indicators["Reward"]) >= 2:
-            risk_score += 15
-
-    # -----------------------------------------
-    # KYC + urgency
-    # -----------------------------------------
-
-    if (
-        "kyc" in message_lower
-        and "Urgency" in indicators
-    ):
-        risk_score += 15
-
-    # -----------------------------------------
-    # OTP / PIN / password + urgency
-    # -----------------------------------------
-
-    if (
-        any(
-            word in message_lower
-            for word in [
-                "otp",
-                "pin",
-                "password"
-            ]
-        )
-        and "Urgency" in indicators
-    ):
-        risk_score += 15
-
-    # -----------------------------------------
-    # Financial request
-    # -----------------------------------------
-
-    if "Financial Request" in indicators:
-        risk_score += 15
-
-    # -----------------------------------------
-    # Job scam + money
-    # -----------------------------------------
-
-    if (
-        "Job Scam" in indicators
-        and "Money Amount" in indicators
-    ):
-        risk_score += 20
-
-    # -----------------------------------------
-    # Reward + URL
-    # -----------------------------------------
-
-    if (
-        "Reward" in indicators
-        and "Suspicious Link" in indicators
-    ):
-        risk_score += 15
-
-    # -----------------------------------------
-    # Legitimate context adjustment
-    # -----------------------------------------
-
+    # Only reduce score when there are no strong scam signals
     if legitimate_context:
 
         if (
@@ -436,20 +422,94 @@ def analyze_message(message):
             and "Reward" not in indicators
             and "Job Scam" not in indicators
         ):
+
             risk_score -= 20
 
-    # -----------------------------------------
-    # Keep score between 0 and 100
-    # -----------------------------------------
+    # ========================================================
+    # ADDITIONAL STRONG REWARD DETECTION
+    # ========================================================
+
+    strong_reward_words = [
+
+        "lottery",
+        "jackpot",
+        "winner",
+        "won",
+        "prize"
+    ]
+
+    reward_word_found = any(
+        word in message_lower
+        for word in strong_reward_words
+    )
+
+    # Reward + money
+    if (
+        reward_word_found
+        and "Money Amount" in indicators
+    ):
+
+        risk_score += 20
+
+    # Reward + link
+    if (
+        reward_word_found
+        and "Suspicious Link" in indicators
+    ):
+
+        risk_score += 20
+
+    # ========================================================
+    # SPECIAL CASES
+    # ========================================================
+
+    # A message claiming someone won money is highly suspicious
+    if (
+        reward_word_found
+        and "Money Amount" in indicators
+    ):
+
+        risk_score = max(
+            risk_score,
+            75
+        )
+
+    # A message combining urgency + bank + verification
+    if (
+        "Urgency" in indicators
+        and "Financial" in indicators
+        and "Security" in indicators
+    ):
+
+        risk_score = max(
+            risk_score,
+            75
+        )
+
+    # A message combining threat + bank + verification
+    if (
+        "Threat" in indicators
+        and "Financial" in indicators
+        and "Security" in indicators
+    ):
+
+        risk_score = max(
+            risk_score,
+            80
+        )
+
+    # ========================================================
+    # KEEP SCORE BETWEEN 0 AND 100
+    # ========================================================
 
     risk_score = max(
         0,
         min(risk_score, 100)
     )
 
-    # -----------------------------------------
-    # Determine risk level
-    # -----------------------------------------
+    # ========================================================
+    # RISK LEVEL
+    # ========================================================
 
     if risk_score >= 70:
 
@@ -504,22 +564,26 @@ with st.expander("🧠 How does SCAMSHIELD work?"):
 
     st.write(
         """
-        **SCAMSHIELD uses a hybrid detection approach:**
+        SCAMSHIELD uses a hybrid detection approach.
 
         **1. Machine Learning**
+
         The message is converted into numerical features using
         TF-IDF and analyzed by the trained spam classification model.
 
         **2. Risk Indicators**
+
         The system looks for common scam signals such as urgency,
         financial requests, security verification, threats,
         rewards and suspicious links.
 
         **3. Risk Scoring**
+
         The ML prediction and detected indicators are combined
         into a final risk score from 0 to 100.
 
         **4. Risk Level**
+
         The final score is classified as LOW, MEDIUM or HIGH risk.
         """
     )
@@ -540,13 +604,12 @@ message = st.text_area(
     placeholder=(
         "Example: Your bank account will be blocked. "
         "Verify immediately..."
-    ),
-    label_visibility="visible"
+    )
 )
 
 
 # ============================================================
-# EXAMPLE BUTTONS
+# EXAMPLE MESSAGES
 # ============================================================
 
 st.caption("💡 Try an example:")
@@ -612,9 +675,9 @@ if st.button(
             )
 
             recommendation = (
-                "Do not click links, share OTPs, "
-                "passwords or financial information. "
-                "Verify the sender through an official source."
+                "Do not click links, share OTPs, passwords "
+                "or financial information. Verify the sender "
+                "through an official source."
             )
 
         elif risk_level == "MEDIUM":
@@ -624,8 +687,9 @@ if st.button(
             )
 
             recommendation = (
-                "Be cautious. Avoid sharing sensitive information "
-                "and independently verify the message before taking action."
+                "Be cautious. Avoid sharing sensitive "
+                "information and independently verify the "
+                "message before taking action."
             )
 
         else:
@@ -664,7 +728,7 @@ if st.button(
         )
 
         # ====================================================
-        # RECOMMENDATION
+        # RECOMMENDED ACTION
         # ====================================================
 
         st.subheader("🎯 Recommended Action")
@@ -705,7 +769,9 @@ if st.button(
         # EXPLANATION
         # ====================================================
 
-        st.subheader("🧠 Why was this message flagged?")
+        st.subheader(
+            "🧠 Why was this message flagged?"
+        )
 
         if indicators:
 
@@ -720,16 +786,18 @@ if st.button(
                 )
 
             st.write(
-                "These signals were combined with the machine "
-                "learning prediction to calculate the final risk score."
+                "These signals were combined with the "
+                "machine learning prediction to calculate "
+                "the final risk score."
             )
 
         else:
 
             st.write(
-                "The message did not contain strong rule-based "
-                "scam indicators, and the machine learning model "
-                "assigned it a relatively low spam probability."
+                "The message did not contain strong "
+                "rule-based scam indicators, and the "
+                "machine learning model assigned it a "
+                "relatively low spam probability."
             )
 
 
